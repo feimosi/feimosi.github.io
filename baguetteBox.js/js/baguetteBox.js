@@ -1,7 +1,7 @@
 /*!
  * baguetteBox.js
  * @author  feimosi
- * @version 0.5.0
+ * @version 0.6.0
  * @url https://github.com/feimosi/baguetteBox.js
  */
 
@@ -22,7 +22,7 @@ var baguetteBox = (function() {
             'X</g></svg>';
     var overlayID = 'baguetteBox-overlay';
     var sliderID = 'baguetteBox-slider';
-    // Global options and their defaults objects
+    // Global options and their defaults
     var options = {}, defaults = {
         captions: true,
         buttons: 'auto',
@@ -45,6 +45,17 @@ var baguetteBox = (function() {
     // Array containing temporary images DOM elements
     var imagesArray = [];
 
+    // forEach polyfill for IE8
+    if(!Array.prototype.forEach) {
+        Array.prototype.forEach = function(callback, thisArg) {
+            var len = this.length;
+            for(var i = 0; i < len; i++) {
+                callback.call(thisArg, this[i], i, this);
+            }
+        };
+    }
+
+    // Script entry point
     function run(selector, userOptions) {
         buildOverlay();
         // For each gallery bind a click event to every image inside it
@@ -59,7 +70,8 @@ var baguetteBox = (function() {
                     imagesMap[galleryID],
                     function (imageElement, imageIndex) {
                         bind(imageElement, 'click', function(event) {
-                            event.preventDefault();
+                            /*jshint -W030 */
+                            event.preventDefault ? event.preventDefault() : event.returnValue = false;
                             prepareOverlay(galleryID);
                             showOverlay(imageIndex);
                         });
@@ -117,25 +129,30 @@ var baguetteBox = (function() {
         });
         // Add event listeners for buttons
         bind(document.getElementById('previous-button'), 'click', function(event) {
-            event.stopPropagation();
+            /*jshint -W030 */
+            event.stopPropagation ? event.stopPropagation() : event.cancelBubble = true;
             showPreviousImage();
         });
         bind(document.getElementById('next-button'), 'click', function(event) {
-            event.stopPropagation();
+            /*jshint -W030 */
+            event.stopPropagation ? event.stopPropagation() : event.cancelBubble = true;
             showNextImage();
         });
         bind(document.getElementById('close-button'), 'click', function(event) {
-            event.stopPropagation();
+            /*jshint -W030 */
+            event.stopPropagation ? event.stopPropagation() : event.cancelBubble = true;
             hideOverlay();
         });
         // Add touch events
         bind(overlay, 'touchstart', function(event) {
+            // Save x axis position
             touchStartX = event.changedTouches[0].pageX;
         });
         bind(overlay, 'touchmove', function(event) {
             if(touchFlag)
                 return;
-            event.preventDefault();
+            /*jshint -W030 */
+            event.preventDefault ? event.preventDefault() : event.returnValue = false;
             touch = event.touches[0] || event.changedTouches[0];
             if(touch.pageX - touchStartX > 40) {
                 touchFlag = true;
@@ -150,7 +167,7 @@ var baguetteBox = (function() {
             touchFlag = false;
         });
         // Activate keyboard shortcuts
-        bind(window, 'keydown', function(event) {
+        bind(document, 'keydown', function(event) {
             switch(event.keyCode) {
                 case 37: // Left arrow
                     showPreviousImage();
@@ -166,9 +183,11 @@ var baguetteBox = (function() {
     }
 
     function prepareOverlay(galleryIndex) {
+        // If the same gallery is being opened prevent from loading it once again
         if(currentGallery === galleryIndex)
             return;
         currentGallery = galleryIndex;
+        // Update gallery specific options
         setOptions(imagesMap[galleryIndex].options);
         // Empty slider of previous contents
         while(slider.firstChild) {
@@ -192,16 +211,16 @@ var baguetteBox = (function() {
         }
         /* Apply new options */
         // Change transition for proper animation
-        if(options.animation === 'fadeIn')
-            slider.style.transition = 'opacity .4s ease';
-        else
-            slider.style.transition = '';
-        // Hide or display buttons 
+        slider.style.transition = options.animation === 'fadeIn' ? 'opacity .4s ease' : '';
+        slider.style.webkitTransition = options.animation === 'fadeIn' ? 'opacity .4s ease' : '';
+        // Hide buttons if necessary
         if(options.buttons === 'auto' && ('ontouchstart' in window || imagesMap[currentGallery].length === 1))
             options.buttons = false;
+        // Set buttons style to hide or display them
         previousButton.style.display = nextButton.style.display = options.buttons ? '' : 'none';
     }
 
+    // Return DOM element for image container <div class="full-image">...</div>
     function returnImageContainer() {
         var fullImage = document.createElement('div');
         fullImage.className = 'full-image';
@@ -251,22 +270,24 @@ var baguetteBox = (function() {
                 callback();
             return;
         }
-        // Get element reference and optional caption
+        // Get element reference, optional caption and source path
         imageElement = imagesMap[currentGallery][index];
         imageCaption = imageElement.getAttribute('data-caption');
+        imageSrc = getImageSrc(imageElement);
         // Prepare image container elements
         var figure = document.createElement('figure');
         var image = document.createElement('img');
         var figcaption = document.createElement('figcaption');
         imageContainer.appendChild(figure);
-        image.setAttribute('src', imageElement.getAttribute('href'));
+        // Set callback function when image loads
         image.onload = function() {
             // Remove loader element
-            var spinner = this.parentNode.getElementsByClassName('spinner')[0];
+            var spinner = this.parentNode.querySelector('.spinner');
             this.parentNode.removeChild(spinner);
             if(!options.async && callback)
                 callback();
         };
+        image.setAttribute('src', imageSrc);
         // Add loader element
         figure.innerHTML = '<div class="spinner">' +
             '<div class="double-bounce1"></div>' +
@@ -281,6 +302,35 @@ var baguetteBox = (function() {
         // Run callback
         if(options.async && callback)
             callback();
+    }
+
+    function getImageSrc(image) {
+        // Set dafult image path from href
+        var result = imageElement.getAttribute('href');
+        // If dataset is supported find the most suitable image
+        if(image.dataset) {
+            var srcs = [];
+            // Get all possible image versions depending on the resolution 
+            for(var item in image.dataset) {
+                if(item.substring(0, 3) === 'at-')
+                    srcs[item.replace('at-', '')] = image.dataset[item];
+            }
+            // Sort resolutions ascending
+            keys = Object.keys(srcs).sort(function(a, b) {
+                return parseInt(a) < parseInt(b) ? -1 : 1;
+            });
+            // Get real screen resolution 
+            var width = window.innerWidth * window.devicePixelRatio;
+            // Find first image bigger than the current width
+            for(var i = 0; i < keys.length; i++) {
+                if(keys[i] >= width) {
+                    result = srcs[keys[i]];    
+                    break;
+                }
+                result = srcs[keys[i]];
+            }
+        }
+        return result;
     }
 
     function showNextImage() {
@@ -334,7 +384,10 @@ var baguetteBox = (function() {
     }
 
     function bind(element, event, callback) {
-        element.addEventListener(event, callback, false);
+        if(element.addEventListener)
+            element.addEventListener(event, callback, false);
+        else
+            element.attachEvent('on' + event, callback);
     }
 
     return {
