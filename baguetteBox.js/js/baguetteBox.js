@@ -1,7 +1,7 @@
 /*!
  * baguetteBox.js
  * @author  feimosi
- * @version 1.2.0
+ * @version 1.2.1
  * @url https://github.com/feimosi/baguetteBox.js
  */
 
@@ -295,7 +295,9 @@ var baguetteBox = (function() {
         }
         // Get element reference, optional caption and source path
         imageElement = imagesMap[currentGallery][index];
-        imageCaption = imageElement.getAttribute('data-caption') || imageElement.title;
+        imageCaption = (typeof(options.captions) === 'function') ?
+                            options.captions.call(imagesMap[currentGallery], imageElement) :
+                            imageElement.getAttribute('data-caption') || imageElement.title;
         imageSrc = getImageSrc(imageElement);
         // Prepare image container elements
         var figure = create('figure');
