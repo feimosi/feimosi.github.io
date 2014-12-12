@@ -1,7 +1,7 @@
 /*!
  * baguetteBox.js
  * @author  feimosi
- * @version 1.2.1
+ * @version 1.3.0
  * @url https://github.com/feimosi/baguetteBox.js
  */
 
@@ -28,7 +28,9 @@ var baguetteBox = (function() {
         preload: 2,
         animation: 'slideIn',
         afterShow: null,
-        afterHide: null
+        afterHide: null,
+        // callback when image changes with `currentIndex` and `imagesElements.length` as parameters
+        onChange: null
     };
     // Object containing information about features compatibility
     var supports = {};
@@ -61,7 +63,7 @@ var baguetteBox = (function() {
     // filter polyfill for IE8
     // https://gist.github.com/eliperelman/1031656
     if(![].filter) {
-        Array.prototype.filter = function(a,b,c,d,e) {
+        Array.prototype.filter = function(a, b, c, d, e) {
             /*jshint -W030 */
             c=this;d=[];for(e=0;e<c.length;e++)a.call(b,c[e],e,c)&&d.push(c[e]);return d;
         };
@@ -79,7 +81,7 @@ var baguetteBox = (function() {
         galleries = document.querySelectorAll(selector);
         [].forEach.call(
             galleries,
-            function (galleryElement, galleryIndex) {
+            function(galleryElement, galleryIndex) {
                 // Filter 'a' elements from those not linking to images
                 var tags = galleryElement.getElementsByTagName('a');
                 tags = [].filter.call(tags, function(element) {
@@ -93,7 +95,7 @@ var baguetteBox = (function() {
 
                 [].forEach.call(
                     imagesMap[galleryID],
-                    function (imageElement, imageIndex) {
+                    function(imageElement, imageIndex) {
                         bind(imageElement, 'click', function(event) {
                             /*jshint -W030 */
                             event.preventDefault ? event.preventDefault() : event.returnValue = false;
@@ -148,7 +150,7 @@ var baguetteBox = (function() {
     function bindEvents() {
         // When clicked on the overlay (outside displayed image) close it
         bind(overlay, 'click', function(event) {
-            if(event.target && event.target.nodeName !== "IMG" && event.target.nodeName !== "FIGCAPTION")
+            if(event.target && event.target.nodeName !== 'IMG' && event.target.nodeName !== 'FIGCAPTION')
                 hideOverlay();
         });
         // Add event listeners for buttons
@@ -239,7 +241,7 @@ var baguetteBox = (function() {
         }
         /* Apply new options */
         // Change transition for proper animation
-        slider.style.transition = slider.style.webkitTransition = (options.animation === 'fadeIn' ? 'opacity .4s ease' : 
+        slider.style.transition = slider.style.webkitTransition = (options.animation === 'fadeIn' ? 'opacity .4s ease' :
             options.animation === 'slideIn' ? '' : 'none');
         // Hide buttons if necessary
         if(options.buttons === 'auto' && ('ontouchstart' in window || imagesMap[currentGallery].length === 1))
@@ -267,6 +269,8 @@ var baguetteBox = (function() {
             if(options.afterShow)
                 options.afterShow();
         }, 50);
+        if(options.onChange)
+            options.onChange(currentIndex, imagesElements.length);
     }
 
     function hideOverlay() {
@@ -358,36 +362,44 @@ var baguetteBox = (function() {
 
     // Return false at the right end of the gallery
     function showNextImage() {
+        var returnValue;
         // Check if next image exists
         if(currentIndex <= imagesElements.length - 2) {
             currentIndex++;
             updateOffset();
             preloadNext(currentIndex);
-            return true;
+            returnValue = true;
         } else if(options.animation) {
             slider.className = 'bounce-from-right';
             setTimeout(function() {
                 slider.className = '';
             }, 400);
+            returnValue = false;
         }
-        return false;
+        if(options.onChange)
+            options.onChange(currentIndex, imagesElements.length);
+        return returnValue;
     }
 
     // Return false at the left end of the gallery
     function showPreviousImage() {
+        var returnValue;
         // Check if previous image exists
         if(currentIndex >= 1) {
             currentIndex--;
             updateOffset();
             preloadPrev(currentIndex);
-            return true;
+            returnValue = true;
         } else if(options.animation) {
             slider.className = 'bounce-from-left';
             setTimeout(function() {
                 slider.className = '';
             }, 400);
+            returnValue = false;
         }
-        return false;
+        if(options.onChange)
+            options.onChange(currentIndex, imagesElements.length);
+        return returnValue;
     }
 
     function updateOffset() {
