@@ -1,7 +1,7 @@
 /*!
  * baguetteBox.js
  * @author  feimosi
- * @version 1.3.0
+ * @version 1.3.2
  * @url https://github.com/feimosi/baguetteBox.js
  */
 
@@ -82,6 +82,8 @@ var baguetteBox = (function() {
         [].forEach.call(
             galleries,
             function(galleryElement, galleryIndex) {
+                if(userOptions && userOptions.filter) 
+                    regex = userOptions.filter;
                 // Filter 'a' elements from those not linking to images
                 var tags = galleryElement.getElementsByTagName('a');
                 tags = [].filter.call(tags, function(element) {
